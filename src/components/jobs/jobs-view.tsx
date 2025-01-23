@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { JobList } from "./job-list";
 import { JobForm } from "./job-form";
 import { JobDetails } from "./job-details";
-import type { Job } from "@/types";
+import { InstallationType, JobStatus, type Job, type Team } from "@/types";
 import { geocodeAddress } from "@/lib/geocoding";
 import { determineLocationTag } from "@/lib/location";
 import {
@@ -23,12 +23,13 @@ import { db } from "@/lib/firebase";
 import { toast } from "sonner";
 import { JobFormData } from "@/lib/schemas/job-schema";
 
-export function JobsView() {
-  const [jobs, setJobs] = useState<Job[]>([]);
+export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
+  const [, setJobs] = useState<Job[]>([]);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingJob, setEditingJob] = useState<Job | null>(null);
   const [loading, setLoading] = useState(false);
+  const [teams, setTeams] = useState<Team[]>([]);
 
   useEffect(() => {
     // Define our fetch function
@@ -64,6 +65,26 @@ export function JobsView() {
 
     // Call our fetch function
     fetchJobs();
+  }, []);
+
+  useEffect(() => {
+    const fetchTeams = async () => {
+      try {
+        const teamsRef = collection(db, "teams");
+        const snapshot = await getDocs(teamsRef);
+        const teamsData = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as Team[];
+
+        setTeams(teamsData);
+      } catch (error) {
+        console.error("Error fetching teams:", error);
+        toast.error("Failed to load teams");
+      }
+    };
+
+    fetchTeams();
   }, []);
 
   if (loading) {
@@ -104,7 +125,6 @@ export function JobsView() {
       const requiredFields = [
         "customerId",
         "scheduledDate",
-        "estimatedDuration",
         "location",
         "priority",
       ];
@@ -120,23 +140,34 @@ export function JobsView() {
       // Add to Firestore and get the document reference
       const docRef = await addDoc(collection(db, "jobs"), jobData);
 
-      // Create a complete job object with the new ID
+      const JOB_DEFAULTS = {
+        cost: 0,
+        customerRating: 0,
+        installationType: InstallationType.Residential,
+        status: JobStatus.Quote,
+        notes: "",
+        teamAssigned: [] as string[],
+        scheduledDate: new Date(),
+      } as const;
+
       const newJob: Job = {
         id: docRef.id,
         ...data,
+        scheduledDate: data.scheduledDate || JOB_DEFAULTS.scheduledDate,
         location: {
           ...data.location,
           coordinates,
           tag: locationTag,
         },
-        customerRating: 0,
+        customerRating: JOB_DEFAULTS.customerRating,
         createdAt: Timestamp.fromDate(new Date()),
         lastModified: Timestamp.fromDate(new Date()),
-        teamAssigned: data.teamAssigned || [],
-        installationType: data.installationType || [],
-        status: data.status || "pending",
-        cost: data.cost || 0,
-        notes: data.notes || "",
+        teamAssigned: data.teamAssigned || JOB_DEFAULTS.teamAssigned,
+        installationType:
+          data.installationType || JOB_DEFAULTS.installationType,
+        status: data.status || JOB_DEFAULTS.status,
+        cost: data.cost || JOB_DEFAULTS.cost,
+        notes: data.notes || JOB_DEFAULTS.notes,
       };
 
       // Update our local state with the new job
@@ -202,22 +233,23 @@ export function JobsView() {
           <Plus className="mr-2 h-4 w-4" /> New Job
         </Button>
       </PageHeader>
-
       {isFormOpen && (
         <JobForm
           onSubmit={handleCreateJob}
           onCancel={() => setIsFormOpen(false)}
+          setJobs={setJobs}
+          teams={teams}
         />
       )}
-
       {editingJob && (
         <JobForm
           initialData={editingJob}
           onSubmit={handleUpdateJob}
           onCancel={() => setEditingJob(null)}
+          setJobs={setJobs}
+          teams={teams}
         />
       )}
-
       {selectedJob && (
         <JobDetails
           job={selectedJob}
@@ -225,8 +257,11 @@ export function JobsView() {
           onClose={() => setSelectedJob(null)}
         />
       )}
-
-      <JobList jobs={jobs} onEdit={handleEditJob} onView={handleViewJob} />
+      <JobList
+        jobs={initialJobs}
+        onEdit={handleEditJob}
+        onView={handleViewJob}
+      />{" "}
     </div>
   );
 }

@@ -21,30 +21,126 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Job, InstallationType, Priority, JobStatus } from "@/types";
+import {
+  Job,
+  InstallationType,
+  Priority,
+  JobStatus,
+  Team,
+  TeamMember,
+} from "@/types";
 import { JobFormData, jobSchema } from "@/lib/schemas/job-schema";
 import { cn } from "@/lib/utils";
 import AddressAutocomplete from "../AddressAutocomplete";
-
+import { db } from "@/lib/firebase";
+import { doc, updateDoc, collection, addDoc } from "firebase/firestore";
+import { toast } from "sonner";
 interface JobFormProps {
   initialData?: Partial<Job>;
   onSubmit: (data: JobFormData) => Promise<void>;
   onCancel: () => void;
+  setJobs?: React.Dispatch<React.SetStateAction<Job[]>>;
+  teams: Team[];
 }
 
-export function JobForm({ initialData, onSubmit, onCancel }: JobFormProps) {
+export function JobForm({
+  initialData,
+  onSubmit,
+  onCancel,
+  teams,
+}: JobFormProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [date, setDate] = useState<Date | undefined>(
     initialData?.scheduledDate
   );
+  const [selectedTeamMembers, setSelectedTeamMembers] = useState<TeamMember[]>(
+    []
+  );
+
+  const handleFormSubmit = async (data: JobFormData) => {
+    try {
+      setIsSubmitting(true);
+      console.log("Setting isSubmitting to true");
+
+      // Prepare the job data
+      const jobData = {
+        ...data,
+        scheduledDate: date || new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      console.log("Prepared job data:", jobData);
+
+      if (initialData?.id) {
+        // Update existing job
+        console.log("Updating existing job");
+        const jobRef = doc(db, "jobs", initialData.id);
+        await updateDoc(jobRef, {
+          ...jobData,
+          updatedAt: new Date(),
+        });
+
+        toast.success("Job Updated", {
+          description: "The job has been successfully updated.",
+        });
+      } else {
+        // Create new job
+        console.log("Creating new job");
+        const jobRef = collection(db, "jobs");
+        await addDoc(jobRef, jobData);
+
+        toast.success("Job Created", {
+          description: "The job has been successfully created.",
+        });
+      }
+
+      // Call the parent's onSubmit handler with the job data
+      console.log("Calling parent onSubmit");
+      await onSubmit(jobData);
+    } catch (error) {
+      console.error("Error submitting job:", error);
+      toast.error("Error", {
+        description: "There was an error saving the job. Please try again.",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const {
     control,
     register,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<z.infer<typeof jobSchema>>({
     resolver: zodResolver(jobSchema),
-    defaultValues: initialData,
+    defaultValues: initialData || {
+      notes: "",
+      teamAssigned: [],
+      status: JobStatus.Quote,
+    },
+    mode: "onSubmit",
+  });
+
+  const handleFormValidation = handleSubmit(async (data) => {
+    console.log("Form data before submission:", data);
+
+    if (
+      (data.status === JobStatus.Scheduled ||
+        data.status === JobStatus.ScheduledNextYear) &&
+      !date
+    ) {
+      toast.error("Please select a scheduled date");
+      return;
+    }
+
+    try {
+      await handleFormSubmit(data);
+    } catch (error) {
+      console.error("Form submission error:", error);
+    }
   });
 
   const installationTypes = Object.values(InstallationType);
@@ -52,7 +148,7 @@ export function JobForm({ initialData, onSubmit, onCancel }: JobFormProps) {
   const jobStatuses = Object.values(JobStatus);
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={handleFormValidation} className="space-y-6">
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="customerId">Customer</Label>
@@ -130,6 +226,77 @@ export function JobForm({ initialData, onSubmit, onCancel }: JobFormProps) {
         </div>
 
         <div className="space-y-2">
+          <Label htmlFor="teamAssigned">Team Assignment</Label>
+          <Controller
+            name="teamAssigned"
+            control={control}
+            render={({ field }) => (
+              <Select
+                value={field.value?.[0] || ""} // Use first value or empty string
+                onValueChange={(teamId) => {
+                  // Find the selected team
+                  const selectedTeam = teams.find((team) => team.id === teamId);
+
+                  if (selectedTeam) {
+                    // Get member IDs from the team
+                    const memberIds = selectedTeam.members.map(
+                      (member) => member.id
+                    );
+
+                    // Update form field with member IDs
+                    field.onChange(memberIds);
+
+                    // Optionally store full member objects for display
+                    setSelectedTeamMembers(selectedTeam.members);
+                  } else {
+                    field.onChange([]);
+                    setSelectedTeamMembers([]);
+                  }
+                }}
+                disabled={
+                  !["scheduled", "scheduled-next-year"].includes(
+                    watch("status")
+                  )
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a team" />
+                </SelectTrigger>
+                <SelectContent>
+                  {teams?.map((team) => (
+                    <SelectItem key={team.id} value={team.id}>
+                      {`Team ${team.id} (${team.members.length} members)`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+          {errors.teamAssigned && (
+            <p className="text-sm text-red-500">
+              {errors.teamAssigned.message}
+            </p>
+          )}
+
+          {/* Optional: Display selected team members */}
+          {selectedTeamMembers.length > 0 && (
+            <div className="mt-2">
+              <p className="text-sm text-muted-foreground">Team Members:</p>
+              <div className="flex flex-wrap gap-2 mt-1">
+                {selectedTeamMembers.map((member) => (
+                  <span
+                    key={member.id}
+                    className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800"
+                  >
+                    {member.name} ({member.role})
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-2">
           <Label htmlFor="priority">Priority</Label>
           <Controller
             name="priority"
@@ -160,11 +327,7 @@ export function JobForm({ initialData, onSubmit, onCancel }: JobFormProps) {
             name="installationType"
             control={control}
             render={({ field: { onChange, value } }) => (
-              <Select
-                // CHANGED: Ensure the value is a single string instead of an array
-                value={value ?? ""}
-                onValueChange={onChange}
-              >
+              <Select value={value ?? ""} onValueChange={onChange}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select installation type" />
                 </SelectTrigger>
@@ -196,11 +359,31 @@ export function JobForm({ initialData, onSubmit, onCancel }: JobFormProps) {
       </div>
 
       <div className="flex justify-end space-x-2">
-        <Button type="button" variant="outline" onClick={onCancel}>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onCancel}
+          disabled={isSubmitting}
+        >
           Cancel
         </Button>
-        <Button type="submit">
-          {initialData ? "Update Job" : "Create Job"}
+        <Button
+          type="submit"
+          disabled={isSubmitting}
+          onClick={() => console.log("Submit button clicked")}
+        >
+          {isSubmitting ? (
+            <>
+              <span className="mr-2">
+                {initialData ? "Updating..." : "Creating..."}
+              </span>
+              {/* Add a loading spinner component if you have one */}
+            </>
+          ) : initialData ? (
+            "Update Job"
+          ) : (
+            "Create Job"
+          )}
         </Button>
       </div>
     </form>

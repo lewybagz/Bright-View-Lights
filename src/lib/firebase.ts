@@ -4,6 +4,17 @@ import { QueryDocumentSnapshot,
   DocumentData,getFirestore, collection, query, where, orderBy, limit, startAfter } from 'firebase/firestore';
 import { getDatabase } from 'firebase/database';  // Add this import
 
+const debugEnvVars = () => {
+  console.log('Checking Firebase configuration:');
+  console.log('API Key exists:', !!import.meta.env.VITE_FIREBASE_API_KEY);
+  console.log('Auth Domain exists:', !!import.meta.env.VITE_FIREBASE_AUTH_DOMAIN);
+  console.log('Project ID exists:', !!import.meta.env.VITE_FIREBASE_PROJECT_ID);
+  console.log('Storage Bucket exists:', !!import.meta.env.VITE_FIREBASE_STORAGE_BUCKET);
+  console.log('Messaging Sender ID exists:', !!import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID);
+};
+
+debugEnvVars();
+
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -12,6 +23,10 @@ const firebaseConfig = {
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
+
+if (!firebaseConfig.apiKey) {
+  throw new Error('Firebase API key is missing. Check your environment variables.');
+}
 
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);

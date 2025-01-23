@@ -94,7 +94,6 @@ export function CustomersView() {
           customerId: data.customerId,
           status: data.status,
           scheduledDate: data.scheduledDate.toDate(),
-          estimatedDuration: data.estimatedDuration,
           installationType: data.installationType,
           location: data.location,
           teamAssigned: data.teamAssigned,
@@ -225,7 +224,6 @@ export function CustomersView() {
         customerId: selectedCustomer.id,
         status: "pending",
         scheduledDate: new Date(), // Default to today
-        estimatedDuration: 2, // Default duration
         installationType: ["residential"],
         location: {
           address: selectedCustomer.address, // Use customer's address by default

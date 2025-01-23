@@ -77,7 +77,7 @@ export function DashboardView() {
   if (!auth.currentUser) {
     throw new Error("No admin is currently signed in");
   }
-  
+
   useEffect(() => {
     console.log("Current User ID:", user?.uid);
     console.log("Current User Role:", userRole?.role);
@@ -154,8 +154,7 @@ export function DashboardView() {
   };
 
   const metrics = {
-    activeJobs: jobs.filter((job) => job.status === JobStatus.InProgress)
-      .length,
+    activeJobs: jobs.filter((job) => job.status === JobStatus.Scheduled).length,
     totalRevenue: jobs.reduce((sum, job) => sum + (job.cost || 0), 0),
     customerSatisfaction: calculateSatisfaction(jobs),
   };

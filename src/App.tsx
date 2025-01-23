@@ -15,16 +15,59 @@ import { ServiceAreaMap } from "./components/ServiceAreaMap";
 import { useGoogleMaps } from "./hooks/use-google-maps";
 
 function App() {
+  console.time("App Component Initialization");
+
   const { isLoaded, error } = useGoogleMaps(
     import.meta.env.VITE_GOOGLE_MAPS_API_KEY
   );
   const { loading, user } = useAuthStore();
 
   useEffect(() => {
+    // Only proceed with notifications setup if we have a user
     if (user) {
-      setupNotifications();
+      console.time("Notifications Setup");
+
+      // Track if the component is still mounted
+      let isMounted = true;
+
+      // Async function to handle setup
+      const initializeNotifications = async () => {
+        try {
+          setupNotifications();
+
+          // Only log completion if component is still mounted
+          if (isMounted) {
+            console.timeEnd("Notifications Setup");
+            console.log("Notifications successfully initialized");
+          }
+        } catch (error) {
+          // Only log errors if component is still mounted
+          if (isMounted) {
+            console.error("Failed to setup notifications:", error);
+            console.timeEnd("Notifications Setup"); // End timing even if there's an error
+          }
+        }
+      };
+
+      // Start the initialization process
+      initializeNotifications();
+
+      // Cleanup function to prevent updates after unmount
+      return () => {
+        isMounted = false;
+      };
     }
   }, [user]);
+
+  // Log render conditions
+  useEffect(() => {
+    if (loading || !isLoaded) {
+      console.log("Waiting for initialization:", {
+        authLoading: loading,
+        mapsLoading: !isLoaded,
+      });
+    }
+  }, [loading, isLoaded]);
 
   if (loading || !isLoaded) {
     return <div>Loading...</div>;
@@ -34,6 +77,8 @@ function App() {
     console.error("Failed to load Google Maps:", error);
     return <div>Error loading Google Maps</div>;
   }
+
+  console.timeEnd("App Component Initialization");
 
   return (
     <>

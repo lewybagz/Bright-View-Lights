@@ -1,7 +1,7 @@
 import { format } from "date-fns";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import type { Job } from "@/types";
+import { JobStatus, type Job } from "@/types";
 
 interface JobDetailsProps {
   job: Job;
@@ -32,15 +32,17 @@ export function JobDetails({ job, onEdit, onClose }: JobDetailsProps) {
             <h3 className="font-semibold">Status</h3>
             <span
               className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium
-              ${
-                job.status === "completed"
-                  ? "bg-green-100 text-green-700"
-                  : job.status === "in-progress"
-                  ? "bg-blue-100 text-blue-700"
-                  : job.status === "cancelled"
-                  ? "bg-red-100 text-red-700"
-                  : "bg-gray-100 text-gray-700"
-              }`}
+    ${
+      job.status === JobStatus.Completed
+        ? "bg-green-100 text-green-700"
+        : job.status === JobStatus.Scheduled
+        ? "bg-blue-100 text-blue-700"
+        : job.status === JobStatus.ScheduledNextYear
+        ? "bg-yellow-100 text-yellow-700"
+        : job.status === JobStatus.Quote
+        ? "bg-gray-100 text-gray-700"
+        : "bg-gray-100 text-gray-700"
+    }`}
             >
               {job.status}
             </span>
@@ -67,24 +69,15 @@ export function JobDetails({ job, onEdit, onClose }: JobDetailsProps) {
             <p>{format(job.scheduledDate, "PPP")}</p>
           </div>
           <div>
-            <h3 className="font-semibold">Estimated Duration</h3>
-            <p>{job.estimatedDuration} hours</p>
-          </div>
-          <div>
             <h3 className="font-semibold">Customer ID</h3>
             <p>{job.customerId}</p>
           </div>
           <div>
             <h3 className="font-semibold">Installation Type</h3>
             <div className="flex gap-1">
-              {job.installationType.map((type) => (
-                <span
-                  key={type}
-                  className="rounded-full bg-gray-100 px-2 py-1 text-xs"
-                >
-                  {type}
-                </span>
-              ))}
+              <span className="rounded-full bg-gray-100 px-2 py-1 text-xs">
+                {job.installationType}
+              </span>
             </div>
           </div>
         </div>

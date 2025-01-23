@@ -8,11 +8,10 @@ export enum Priority {
 }
 
 export enum JobStatus {
-  Pending = 'pending',
+  Quote = 'quote',
   Scheduled = 'scheduled',
-  InProgress = 'in-progress',
   Completed = 'completed',
-  Cancelled = 'cancelled'
+  ScheduledNextYear = 'scheduled-next-year'
 }
 export enum InstallationType {
   Residential = 'residential',
@@ -32,7 +31,6 @@ export interface Job {
   customerId: string;
   status: JobStatus;
   scheduledDate: Date;
-  estimatedDuration: number;
   installationType: InstallationType; 
   location: JobLocation;
   teamAssigned: string[];
@@ -67,7 +65,7 @@ export interface Team {
   id: string;
   members: TeamMember[];
   skills: string[];
-  currentJob?: string;
+  currentJob?: Job;
   schedule: Schedule;
 }
 
