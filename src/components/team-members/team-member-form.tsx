@@ -29,8 +29,10 @@ const teamMemberSchema = z.object({
   role: z.enum(["admin", "installer", "office"] as const),
   phoneNumber: z
     .string()
-    .min(10, "Phone number must be at least 10 digits")
-    .regex(/^\d{10,}$/, "Phone number must contain only digits"),
+    .regex(
+      /^\(\d{3}\) \d{3}-\d{4}$/,
+      "Phone number must be in (XXX) XXX-XXXX format"
+    ),
   email: z.string().email("Invalid email address"),
   skills: z.array(z.string()),
   status: z.enum(["active", "inactive"] as const),
@@ -39,11 +41,37 @@ const teamMemberSchema = z.object({
     name: z.string().min(1, "Emergency contact name is required"),
     phoneNumber: z
       .string()
-      .min(10, "Phone number must be at least 10 digits")
-      .regex(/^\d{10,}$/, "Phone number must contain only digits"),
+      .regex(
+        /^\(\d{3}\) \d{3}-\d{4}$/,
+        "Phone number must be in (XXX) XXX-XXXX format"
+      ),
     relationship: z.string().min(1, "Relationship is required"),
   }),
 });
+
+// Function to format phone number for form input
+const formatPhoneNumber = (value: string): string => {
+  // Remove all non-digits
+  const cleaned = value.replace(/\D/g, "");
+
+  // Format the number
+  if (cleaned.length >= 10) {
+    return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(
+      6,
+      10
+    )}`;
+  } else if (cleaned.length > 6) {
+    return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(
+      6
+    )}`;
+  } else if (cleaned.length > 3) {
+    return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3)}`;
+  } else if (cleaned.length > 0) {
+    return `(${cleaned}`;
+  }
+
+  return cleaned;
+};
 
 // Create a type from our schema
 export type TeamMemberFormData = z.infer<typeof teamMemberSchema>;
@@ -158,7 +186,19 @@ export function TeamMemberForm({
         {/* Contact Information */}
         <div className="space-y-2">
           <Label htmlFor="phoneNumber">Phone Number</Label>
-          <Input id="phoneNumber" {...register("phoneNumber")} />
+          <Controller
+            name="phoneNumber"
+            control={control}
+            render={({ field }) => (
+              <Input
+                id="phoneNumber"
+                {...field}
+                onChange={(e) =>
+                  field.onChange(formatPhoneNumber(e.target.value))
+                }
+              />
+            )}
+          />
           {errors.phoneNumber && (
             <p className="text-sm text-red-500">{errors.phoneNumber.message}</p>
           )}
@@ -239,7 +279,18 @@ export function TeamMemberForm({
               <Label htmlFor="emergencyContact.phoneNumber">
                 Contact Phone
               </Label>
-              <Input {...register("emergencyContact.phoneNumber")} />
+              <Controller
+                name="emergencyContact.phoneNumber"
+                control={control}
+                render={({ field }) => (
+                  <Input
+                    {...field}
+                    onChange={(e) =>
+                      field.onChange(formatPhoneNumber(e.target.value))
+                    }
+                  />
+                )}
+              />
               {errors.emergencyContact?.phoneNumber && (
                 <p className="text-sm text-red-500">
                   {errors.emergencyContact.phoneNumber.message}

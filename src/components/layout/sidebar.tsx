@@ -13,6 +13,7 @@ const navigation = [
   { name: "Customers", href: "/customers", icon: Users },
   { name: "Jobs", href: "/jobs", icon: Briefcase },
   { name: "Teams", href: "/teams", icon: ShieldHalf },
+  { name: "Team Members", href: "/team-members", icon: Users },
   { name: "Service Area", href: "/service-area", icon: MapPinned },
 ];
 

@@ -10,6 +10,7 @@ import { geocodeAddress } from "@/lib/geocoding";
 import { determineLocationTag } from "@/lib/location";
 import {
   addDoc,
+  arrayUnion,
   collection,
   doc,
   getDocs,
@@ -90,6 +91,34 @@ export function JobsView() {
   if (loading) {
     return <div className="flex justify-center p-8">Loading jobs...</div>;
   }
+
+  const updateTeamSchedule = async (teamId: string, jobId: string) => {
+    try {
+      const teamRef = doc(db, "teams", teamId);
+      await updateDoc(teamRef, {
+        "schedule.jobs": arrayUnion(jobId),
+      });
+
+      // Update local state
+      setTeams((prev) =>
+        prev.map((team) => {
+          if (team.id === teamId) {
+            return {
+              ...team,
+              schedule: {
+                ...team.schedule,
+                jobs: [...team.schedule.jobs, jobId],
+              },
+            };
+          }
+          return team;
+        })
+      );
+    } catch (error) {
+      console.error("Error updating team schedule:", error);
+      toast.error("Failed to update team schedule");
+    }
+  };
 
   const handleCreateJob = async (data: JobFormData) => {
     try {
@@ -239,6 +268,7 @@ export function JobsView() {
           onCancel={() => setIsFormOpen(false)}
           setJobs={setJobs}
           teams={teams}
+          onTeamAssign={updateTeamSchedule}
         />
       )}
       {editingJob && (
@@ -248,6 +278,7 @@ export function JobsView() {
           onCancel={() => setEditingJob(null)}
           setJobs={setJobs}
           teams={teams}
+          onTeamAssign={updateTeamSchedule}
         />
       )}
       {selectedJob && (

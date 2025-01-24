@@ -108,28 +108,30 @@ export function TeamMembersList({
         <table className="w-full">
           <thead>
             <tr className="border-b bg-muted/50">
-              <th className="p-2 text-left">Name</th>
-              <th className="p-2 text-left">Role</th>
-              <th className="p-2 text-left">Phone</th>
-              <th className="p-2 text-left">Email</th>
-              <th className="p-2 text-left">Skills</th>
-              <th className="p-2 text-left">Status</th>
-              <th className="p-2 text-left">Actions</th>
+              <th className="p-2 text-center">Name</th>
+              <th className="p-2 text-center">Role</th>
+              <th className="p-2 text-center">Phone</th>
+              <th className="p-2 text-center">Email</th>
+              <th className="p-2 text-center">Skills</th>
+              <th className="p-2 text-center">Status</th>
+              <th className="p-2 text-center">Actions</th>
             </tr>
           </thead>
           <tbody>
             {filteredMembers.map((member) => (
               <tr key={member.id} className="border-b">
-                <td className="p-2 font-medium">{member.name}</td>
-                <td className="p-2">
+                <td className="p-2 text-center font-medium">{member.name}</td>
+                <td className="p-2 text-center">
                   <span className={getRoleBadgeClasses(member.role)}>
                     {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
                   </span>
                 </td>
-                <td className="p-2">{formatPhoneNumber(member.phoneNumber)}</td>
-                <td className="p-2">{member.email}</td>
-                <td className="p-2">
-                  <div className="flex flex-wrap gap-1">
+                <td className="p-2 text-center">
+                  {formatPhoneNumber(member.phoneNumber)}
+                </td>
+                <td className="p-2 text-center">{member.email}</td>
+                <td className="p-2 text-center">
+                  <div className="flex flex-wrap gap-1 items-center justify-center">
                     {member.skills.map((skill) => (
                       <span
                         key={skill}
@@ -140,7 +142,7 @@ export function TeamMembersList({
                     ))}
                   </div>
                 </td>
-                <td className="p-2">
+                <td className="p-2 text-center">
                   <span
                     className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
                       member.status === "active"

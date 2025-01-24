@@ -3,7 +3,7 @@ import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { useAuthStore } from "@/store/auth"; // Create this hook to get user role
-import type { Team } from "@/types";
+import { JobStatus, type Team } from "@/types";
 
 interface TeamMetricsProps {
   team: Team;
@@ -16,27 +16,30 @@ interface TeamMetricsProps {
 export function TeamMetrics({ team, metrics }: TeamMetricsProps) {
   const [revenue, setRevenue] = useState<number | null>(null);
   const { userRole } = useAuthStore();
+  const [completedJobs, setCompletedJobs] = useState(0);
 
   useEffect(() => {
-    const fetchRevenue = async () => {
-      if (userRole?.role === "admin" || userRole?.role === "office") {
-        const jobsQuery = query(
-          collection(db, "jobs"),
-          where("teamId", "==", team.id),
-          where("status", "==", "completed")
-        );
+    const fetchMetrics = async () => {
+      const jobsQuery = query(
+        collection(db, "jobs"),
+        where("teamId", "==", team.id),
+        where("status", "==", JobStatus.Completed)
+      );
 
-        const snapshot = await getDocs(jobsQuery);
+      const snapshot = await getDocs(jobsQuery);
+      setCompletedJobs(snapshot.docs.length);
+
+      // Revenue calculation remains the same
+      if (userRole?.role === "admin" || userRole?.role === "office") {
         const totalRevenue = snapshot.docs.reduce(
           (sum, doc) => sum + (doc.data().cost || 0),
           0
         );
-
         setRevenue(totalRevenue);
       }
     };
 
-    fetchRevenue();
+    fetchMetrics();
   }, [team.id, userRole?.role]);
 
   return (
@@ -50,9 +53,7 @@ export function TeamMetrics({ team, metrics }: TeamMetricsProps) {
             <div className="text-sm font-medium text-gray-500">
               Completed Jobs
             </div>
-            <div className="mt-1 text-3xl font-semibold">
-              {metrics.completedJobs}
-            </div>
+            <div className="mt-1 text-3xl font-semibold">{completedJobs}</div>
           </div>
           <div className="p-4 rounded-lg bg-gray-50">
             <div className="text-sm font-medium text-gray-500">

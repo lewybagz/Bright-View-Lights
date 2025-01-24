@@ -13,6 +13,7 @@ import { useAuthStore } from "@/store/auth";
 import { setupNotifications } from "@/lib/notifications";
 import { ServiceAreaMap } from "./components/ServiceAreaMap";
 import { useGoogleMaps } from "./hooks/use-google-maps";
+import { TeamMembersView } from "./components/team-members/team-members-view";
 
 function App() {
   console.time("App Component Initialization");
@@ -98,6 +99,7 @@ function App() {
           <Route path="jobs" element={<JobsView />} />
           <Route path="customers" element={<CustomersView />} />
           <Route path="teams" element={<TeamsView />} />
+          <Route path="team-members" element={<TeamMembersView />} />
           <Route path="/service-area" element={<ServiceAreaMap />} />
         </Route>
       </Routes>

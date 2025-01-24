@@ -102,7 +102,7 @@ export function TeamMembersView() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="team-members-view container mx-auto p-6 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Team Members</h1>
         <Button onClick={() => setIsFormOpen(true)}>Add Team Member</Button>

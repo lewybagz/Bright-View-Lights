@@ -7,6 +7,7 @@ export enum Priority {
   Urgent = 'urgent'
 }
 
+// TODO: be sure to keep jobstatus 'completed' once the job is done even if it is switched 'scheduled for next year' 
 export enum JobStatus {
   Quote = 'quote',
   Scheduled = 'scheduled',
@@ -63,6 +64,7 @@ export interface Customer {
 
 export interface Team {
   id: string;
+  name: string;
   members: TeamMember[];
   skills: string[];
   currentJob?: Job;
@@ -110,3 +112,5 @@ export interface User {
   lastName?: string;
   isActive: boolean;
 }
+
+// we need to make some adjsutments to the team form. 1. we should have a dropwdown of team members with the role 'installer' instead of a regular name, role, and skills field. 2. team skills should not be in the team form. the team form should basically only be selecting the team members from a dropwdown. the layout should support multiple team members. there should be 2 dropdowns for team member selection and once the 'create team' button is clicked, the ui should be updated showing the team card. the default amount of teamcard components should be 2 but there should be a '+' icon to add another. here are the types for both team and team memeber so you know what to display on the card: 

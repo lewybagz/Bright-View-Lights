@@ -41,6 +41,8 @@ interface JobFormProps {
   onCancel: () => void;
   setJobs?: React.Dispatch<React.SetStateAction<Job[]>>;
   teams: Team[];
+  onTeamAssign: (teamId: string, jobId: string) => Promise<void>;
+  jobId?: string;
 }
 
 export function JobForm({
@@ -48,6 +50,8 @@ export function JobForm({
   onSubmit,
   onCancel,
   teams,
+  onTeamAssign,
+  jobId,
 }: JobFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [date, setDate] = useState<Date | undefined>(
@@ -98,6 +102,9 @@ export function JobForm({
       // Call the parent's onSubmit handler with the job data
       console.log("Calling parent onSubmit");
       await onSubmit(jobData);
+      if (data.teamAssigned && data.teamAssigned[0] && jobId) {
+        await onTeamAssign(data.teamAssigned[0], jobId);
+      }
     } catch (error) {
       console.error("Error submitting job:", error);
       toast.error("Error", {
@@ -232,29 +239,18 @@ export function JobForm({
             control={control}
             render={({ field }) => (
               <Select
-                value={field.value?.[0] || ""} // Use first value or empty string
+                value={field.value?.toString() || ""} // Remove [0] since we want the team ID directly
                 onValueChange={(teamId) => {
-                  // Find the selected team
+                  field.onChange([teamId]); // Set the team ID directly
                   const selectedTeam = teams.find((team) => team.id === teamId);
-
                   if (selectedTeam) {
-                    // Get member IDs from the team
-                    const memberIds = selectedTeam.members.map(
-                      (member) => member.id
-                    );
-
-                    // Update form field with member IDs
-                    field.onChange(memberIds);
-
-                    // Optionally store full member objects for display
                     setSelectedTeamMembers(selectedTeam.members);
                   } else {
-                    field.onChange([]);
                     setSelectedTeamMembers([]);
                   }
                 }}
                 disabled={
-                  !["scheduled", "scheduled-next-year"].includes(
+                  !["scheduled", "completed", "scheduled-next-year"].includes(
                     watch("status")
                   )
                 }
@@ -265,7 +261,8 @@ export function JobForm({
                 <SelectContent>
                   {teams?.map((team) => (
                     <SelectItem key={team.id} value={team.id}>
-                      {`Team ${team.id} (${team.members.length} members)`}
+                      {team.name || `Team ${team.id}`} ({team.members.length}{" "}
+                      members)
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -367,17 +364,12 @@ export function JobForm({
         >
           Cancel
         </Button>
-        <Button
-          type="submit"
-          disabled={isSubmitting}
-          onClick={() => console.log("Submit button clicked")}
-        >
+        <Button type="submit" disabled={isSubmitting}>
           {isSubmitting ? (
             <>
               <span className="mr-2">
                 {initialData ? "Updating..." : "Creating..."}
               </span>
-              {/* Add a loading spinner component if you have one */}
             </>
           ) : initialData ? (
             "Update Job"

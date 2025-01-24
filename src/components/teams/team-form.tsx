@@ -1,9 +1,7 @@
-import { useForm, Controller } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
+// team-form.tsx
+import { useState, useEffect } from "react";
+import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -11,93 +9,121 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { Team } from "@/types";
-import { teamSchema } from "@/lib/schemas/team-schema";
+import { Card, CardContent } from "@/components/ui/card";
+import { TeamMember } from "@/types";
+import { collection, getDocs, query, where } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { Label } from "../ui/label";
+import { Input } from "../ui/input";
 
 interface TeamFormProps {
-  initialData?: Partial<Team>;
-  onSubmit: (data: z.infer<typeof teamSchema>) => void;
+  installers: TeamMember[];
+  onSubmit: (data: { name: string; memberIds: string[] }) => Promise<void>;
   onCancel: () => void;
 }
 
-export function TeamForm({ initialData, onSubmit, onCancel }: TeamFormProps) {
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    control,
-  } = useForm<z.infer<typeof teamSchema>>({
-    resolver: zodResolver(teamSchema),
-    defaultValues: initialData,
-  });
+export function TeamForm({ onSubmit, onCancel }: TeamFormProps) {
+  const [installers, setInstallers] = useState<TeamMember[]>([]);
+  const [selectedMembers, setSelectedMembers] = useState<string[]>(["", ""]);
+  const [teamName, setTeamName] = useState("");
+
+  useEffect(() => {
+    const fetchInstallers = async () => {
+      const q = query(
+        collection(db, "teamMembers"),
+        where("role", "==", "installer"),
+        where("status", "==", "active")
+      );
+      const snapshot = await getDocs(q);
+      setInstallers(
+        snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as TeamMember[]
+      );
+    };
+    fetchInstallers();
+  }, []);
+
+  const handleAddMember = () => {
+    setSelectedMembers([...selectedMembers, ""]);
+  };
+
+  const handleRemoveMember = (index: number) => {
+    setSelectedMembers(selectedMembers.filter((_, i) => i !== index));
+  };
+
+  const handleMemberSelect = (value: string, index: number) => {
+    const newMembers = [...selectedMembers];
+    newMembers[index] = value;
+    setSelectedMembers(newMembers);
+  };
+
+  const handleSubmit = () => {
+    onSubmit({
+      name: teamName,
+      memberIds: selectedMembers.filter((id) => id !== ""),
+    });
+  };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      <div className="space-y-4">
-        <div>
-          <h3 className="text-lg font-semibold mb-2">Team Members</h3>
-          {/* Add dynamic team member fields */}
-          <div className="space-y-4">
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label>Name</Label>
-                <Input {...register("members.0.name")} />
-                {errors.members?.[0]?.name && (
-                  <p className="text-sm text-red-500">
-                    {errors.members[0].name.message}
-                  </p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label>Role</Label>
-                <Controller
-                  name="members.0.role"
-                  control={control}
-                  render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select role" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="admin">Admin</SelectItem>
-                        <SelectItem value="installer">Installer</SelectItem>
-                        <SelectItem value="office">Office</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Skills</Label>
-                <Input
-                  {...register("members.0.skills")}
-                  placeholder="Comma-separated skills"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <h3 className="text-lg font-semibold mb-2">Team Skills</h3>
-          <div className="space-y-2">
-            <Label>Skills</Label>
-            <Input
-              {...register("skills")}
-              placeholder="Comma-separated team skills"
-            />
-          </div>
-        </div>
+    <div className="space-y-4">
+      <div>
+        <Label htmlFor="teamName">Team Name</Label>
+        <Input
+          id="teamName"
+          placeholder="Enter team name"
+          value={teamName}
+          onChange={(e) => setTeamName(e.target.value)}
+        />
       </div>
+      {selectedMembers.map((memberId, index) => (
+        <Card key={index}>
+          <CardContent className="pt-6 flex items-center gap-4">
+            <Select
+              value={memberId}
+              onValueChange={(value) => handleMemberSelect(value, index)}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select installer" />
+              </SelectTrigger>
+              <SelectContent>
+                {installers.map((installer) => (
+                  <SelectItem key={installer.id} value={installer.id}>
+                    {installer.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {index >= 2 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleRemoveMember(index)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      ))}
+
+      <Button
+        type="button"
+        variant="outline"
+        onClick={handleAddMember}
+        className="w-full"
+      >
+        <Plus className="mr-2 h-4 w-4" />
+        Add Team Member
+      </Button>
 
       <div className="flex justify-end space-x-2">
-        <Button type="button" variant="outline" onClick={onCancel}>
+        <Button variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        <Button type="submit">
-          {initialData ? "Update Team" : "Create Team"}
-        </Button>
+        <Button onClick={handleSubmit}>Create Team</Button>
       </div>
-    </form>
+    </div>
   );
 }
