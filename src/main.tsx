@@ -9,9 +9,6 @@ import App from "./App";
 import "./index.css";
 import { PerformanceWrapper } from "./PerformanceWrapper";
 
-console.time("Application Initialization");
-console.log("Starting application initialization");
-
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <PerformanceWrapper>

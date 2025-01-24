@@ -74,6 +74,15 @@ export interface TeamMember {
   name: string;
   role: Role;
   skills: string[];
+  phoneNumber: string;
+  email: string;
+  hireDate: Date;
+  status: 'active' | 'inactive';
+  emergencyContact: {
+    name: string;
+    phoneNumber: string;
+    relationship: string;
+  };
 }
 
 export interface Schedule {
@@ -82,15 +91,6 @@ export interface Schedule {
   jobs: string[];
   date: Date;
   status: 'active' | 'completed' | 'cancelled';
-}
-
-export interface Availability {
-  userId: string;
-  dates: {
-    start: Date;
-    end: Date;
-  }[];
-  exceptions: Date[];
 }
 
 export interface WeatherData {

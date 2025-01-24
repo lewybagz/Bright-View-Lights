@@ -23,8 +23,8 @@ import { db } from "@/lib/firebase";
 import { toast } from "sonner";
 import { JobFormData } from "@/lib/schemas/job-schema";
 
-export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
-  const [, setJobs] = useState<Job[]>([]);
+export function JobsView() {
+  const [jobs, setJobs] = useState<Job[]>([]); // Initialize with empty array
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingJob, setEditingJob] = useState<Job | null>(null);
@@ -258,10 +258,10 @@ export function JobsView({ initialJobs }: { initialJobs: Job[] }) {
         />
       )}
       <JobList
-        jobs={initialJobs}
+        initialJobs={jobs} // Use the jobs from state instead of initialJobs
         onEdit={handleEditJob}
         onView={handleViewJob}
-      />{" "}
+      />
     </div>
   );
 }

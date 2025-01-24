@@ -23,12 +23,12 @@ import {
 import { db } from "@/lib/firebase";
 
 interface JobListProps {
-  jobs: Job[];
+  initialJobs?: Job[];
   onEdit: (job: Job) => void;
   onView: (job: Job) => void;
 }
 
-export function JobList({ jobs: initialJobs, onEdit, onView }: JobListProps) {
+export function JobList({ initialJobs = [], onEdit, onView }: JobListProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
@@ -72,16 +72,18 @@ export function JobList({ jobs: initialJobs, onEdit, onView }: JobListProps) {
       setIsLoading(false);
     }
   };
-  const filteredJobs = jobs.filter((job) => {
-    const matchesSearch =
-      job.location.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      job.customerId.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === "all" || job.status === statusFilter;
-    const matchesPriority =
-      priorityFilter === "all" || job.priority === priorityFilter;
+  const filteredJobs =
+    jobs?.filter((job) => {
+      const matchesSearch =
+        job.location.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        job.customerId.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus =
+        statusFilter === "all" || job.status === statusFilter;
+      const matchesPriority =
+        priorityFilter === "all" || job.priority === priorityFilter;
 
-    return matchesSearch && matchesStatus && matchesPriority;
-  });
+      return matchesSearch && matchesStatus && matchesPriority;
+    }) ?? [];
 
   return (
     <div className="space-y-4">

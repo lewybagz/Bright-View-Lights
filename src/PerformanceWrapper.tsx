@@ -10,6 +10,5 @@ export function PerformanceWrapper({ children }: PerformanceWrapperProps) {
     console.timeEnd("Application Initialization");
     console.log("Application mounted");
   }, []);
-
   return <>{children}</>;
 }
