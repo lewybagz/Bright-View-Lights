@@ -114,6 +114,7 @@ export function TeamMemberForm({
       status: "active",
       skills: [],
       hireDate: new Date(),
+      phoneNumber: "",
       emergencyContact: {
         name: "",
         phoneNumber: "",

@@ -68,7 +68,16 @@ function isPointInPolygon(point: LatLng, polygon: number[][]): boolean {
   return turf.booleanPointInPolygon(pt, poly);
 }
 
-export type LocationTag = 'marana' | 'in-town' | 'catalina' | 'vail' | 'out-of-town' | 'oro-valley';
+export const LOCATION_TAGS = [
+  'marana',
+  'in-town',
+  'catalina',
+  'vail',
+  'out-of-town',
+  'oro-valley'
+] as const;
+
+export type LocationTag = typeof LOCATION_TAGS[number];
 
 // Main function to determine which region a point falls into
 export function determineLocationTag(coordinates: LatLng): LocationTag {

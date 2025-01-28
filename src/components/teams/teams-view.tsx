@@ -20,15 +20,12 @@ import { db } from "@/lib/firebase";
 import { toast } from "sonner";
 import { getTeamSkills } from "@/lib/team-utils";
 import { TeamCard } from "./team-card";
+import { useTeam } from "@/hooks/use-team";
 
-export function TeamsView({
-  setEditingTeam,
-}: {
-  setEditingTeam: (team: Team) => void;
-}) {
+export function TeamsView() {
+  const { setEditingTeam, setIsFormOpen, isFormOpen } = useTeam();
   const [teams, setTeams] = useState<Team[]>([]);
   const [installers, setInstallers] = useState<TeamMember[]>([]);
-  const [isFormOpen, setIsFormOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

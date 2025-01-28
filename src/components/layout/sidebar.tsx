@@ -10,7 +10,6 @@ import { cn } from "@/lib/utils";
 
 const navigation = [
   { name: "Calendar", href: "/calendar", icon: Calendar },
-  { name: "Customers", href: "/customers", icon: Users },
   { name: "Jobs", href: "/jobs", icon: Briefcase },
   { name: "Teams", href: "/teams", icon: ShieldHalf },
   { name: "Team Members", href: "/team-members", icon: Users },

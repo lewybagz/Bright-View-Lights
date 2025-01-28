@@ -19,7 +19,7 @@ export function setupNotifications() {
       if (change.type === 'added') {
         const job = change.doc.data();
         toast.info('New Job Created', {
-          description: `Job #${change.doc.id} has been created for ${job.customerId}`,
+          description: `Job #${change.doc.id} has been created for ${job.customerName}`,
         });
       }
     });

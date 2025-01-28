@@ -1,22 +1,21 @@
 // components/AddressAutocomplete.tsx
-import React, { useState, useRef, useEffect, useMemo } from "react";
-import { debounce } from "lodash";
+import React, { useState, useRef, useEffect } from "react";
 import { Control, FieldErrors, Controller } from "react-hook-form";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { JobFormData } from "@/lib/schemas/job-schema";
 import { useGoogleMaps } from "@/hooks/use-google-maps";
+import { JobLocation } from "@/types";
+import { determineLocationTag } from "@/lib/regions";
 
 interface AddressAutocompleteProps {
   control: Control<JobFormData>;
   errors: FieldErrors<JobFormData>;
-  onAddressSelect?: (address: string) => void;
 }
 
 const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
   control,
   errors,
-  onAddressSelect,
 }) => {
   const [autocomplete, setAutocomplete] =
     useState<google.maps.places.Autocomplete | null>(null);
@@ -27,20 +26,13 @@ const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
     isLoading: mapsLoading,
     error,
   } = useGoogleMaps(import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "");
+  const [selectedLocation, setSelectedLocation] = useState<JobLocation | null>(
+    null
+  );
+
+  const fieldOnChangeRef = useRef<((value: JobLocation) => void) | null>(null);
 
   // Handle place selection
-  const handlePlaceChanged = useMemo(() => {
-    return debounce(() => {
-      if (autocomplete) {
-        const place = autocomplete.getPlace();
-        if (place?.formatted_address) {
-          onAddressSelect?.(place.formatted_address);
-        }
-      }
-    }, 300);
-  }, [autocomplete, onAddressSelect]);
-
-  // Initialize autocomplete when Google Maps is loaded
   useEffect(() => {
     if (!isLoaded || !elementRef.current || autocomplete) return;
     setFormLoading(true);
@@ -48,10 +40,37 @@ const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
     try {
       const autoCompleteInstance = new google.maps.places.Autocomplete(
         elementRef.current,
-        {
-          types: ["address"],
-        }
+        { types: ["address"] }
       );
+
+      console.log("Autocomplete instance created");
+
+      // Use autoCompleteInstance directly instead of the state variable
+      const handlePlaceChanged = () => {
+        console.log("Place Changed Event");
+        // Use autoCompleteInstance instead of autocomplete
+        const place = autoCompleteInstance.getPlace();
+        console.log("Selected place:", place);
+
+        if (place?.formatted_address && place.geometry?.location) {
+          // First, create the coordinates object
+          const coordinates = {
+            lat: place.geometry.location.lat(),
+            lng: place.geometry.location.lng(),
+          };
+
+          // Use determineLocationTag to get the correct tag based on the coordinates
+          const location: JobLocation = {
+            address: place.formatted_address,
+            coordinates,
+            tag: determineLocationTag(coordinates), // This replaces the hardcoded "in-town"
+          };
+
+          console.log("Setting location:", location);
+          setSelectedLocation(location);
+          fieldOnChangeRef.current?.(location);
+        }
+      };
 
       autoCompleteInstance.addListener("place_changed", handlePlaceChanged);
       setAutocomplete(autoCompleteInstance);
@@ -61,14 +80,12 @@ const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
       setFormLoading(false);
     }
 
-    // Cleanup listeners on unmount
     return () => {
       if (autocomplete) {
         google.maps.event.clearInstanceListeners(autocomplete);
       }
-      handlePlaceChanged.cancel();
     };
-  }, [isLoaded, handlePlaceChanged, autocomplete]);
+  }, [autocomplete, isLoaded]); // Note: removed autocomplete from dependencies
 
   // Handle keyboard events
   useEffect(() => {
@@ -87,6 +104,10 @@ const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
     }
   }, []);
 
+  useEffect(() => {
+    console.log("Selected Location Updated:", selectedLocation);
+  }, [selectedLocation]);
+
   if (error) {
     return <div>Error loading Google Maps</div>;
   }
@@ -94,33 +115,46 @@ const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
   return (
     <div className="space-y-2">
       <Label htmlFor="address">Address</Label>
-      {mapsLoading && <span>Loading address autocomplete...</span>}
       <Controller
-        name="location.address"
+        name="location"
         control={control}
-        defaultValue=""
-        render={({ field: { ref, ...field } }) => (
-          <Input
-            {...field}
-            value={field.value || ""}
-            // We use regular ref for our elementRef
-            ref={elementRef}
-            // And pass the form's ref as a separate prop
-            inputRef={ref}
-            aria-label="Search for an address"
-            aria-describedby="address-hint"
-            role="combobox"
-            aria-expanded="false"
-            aria-autocomplete="list"
-            placeholder="Start typing your address..."
-            disabled={mapsLoading || formLoading}
-          />
-        )}
+        defaultValue={{
+          address: "",
+          coordinates: { lat: 0, lng: 0 },
+          tag: "out-of-town",
+        }}
+        render={({ field }) => {
+          fieldOnChangeRef.current = field.onChange;
+
+          return (
+            <Input
+              {...field}
+              value={selectedLocation?.address || field.value.address || ""}
+              ref={elementRef}
+              onChange={(e) => {
+                // Only update form if no selected location
+                console.log("Input Change Event:", e.target.value);
+                if (!selectedLocation) {
+                  field.onChange({
+                    ...field.value,
+                    address: e.target.value,
+                  });
+                }
+              }}
+              onFocus={() => {
+                setSelectedLocation(null);
+              }}
+              aria-label="Search for an address"
+              aria-describedby="address-hint"
+              role="combobox"
+              aria-expanded="false"
+              aria-autocomplete="list"
+              placeholder="Start typing your address..."
+              disabled={mapsLoading || formLoading}
+            />
+          );
+        }}
       />
-      <div id="address-hint" className="sr-only">
-        Start typing to search for an address. Use arrow keys to navigate
-        suggestions.
-      </div>
       {errors.location?.address && (
         <p className="text-sm text-red-500" role="alert">
           {errors.location.address.message}

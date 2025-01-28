@@ -1,3 +1,4 @@
+import { LocationTag } from "@/lib/regions";
 import { Timestamp } from 'firebase/firestore';
 
 export enum Priority {
@@ -14,24 +15,27 @@ export enum JobStatus {
   Completed = 'completed',
   ScheduledNextYear = 'scheduled-next-year'
 }
+
 export enum InstallationType {
   Residential = 'residential',
   Commercial = 'commercial',
   Custom = 'custom'
 }
+
 export type Role = 'admin' | 'installer' | 'office';
 
 export interface JobLocation {
   address: string;
   coordinates: LatLng;
-  tag: 'marana' | 'in-town' | 'out-of-town' | 'catalina' | 'vail';
+  tag: LocationTag;
 }
 
 export interface Job {
   id: string;
-  customerId: string;
+  customerName: string;
+  customerPhone: string;
   status: JobStatus;
-  scheduledDate: Date;
+  scheduledDate: Date | Timestamp;
   installationType: InstallationType; 
   location: JobLocation;
   teamAssigned: string[];
@@ -39,27 +43,12 @@ export interface Job {
   notes: string;
   createdAt: Timestamp;
   lastModified: Timestamp;
-  customerRating: number; 
   cost: number;
 } 
 
 export interface LatLng {
   lat: number;
   lng: number;
-}
-
-export interface Customer {
-  id: string;
-  name: string;
-  contact: {
-    phone: string;
-    email: string;
-    preferredContact: 'phone' | 'email';
-  };
-  address: string;
-  jobHistory: string[];
-  preferences: Record<string, unknown>;
-  notes: string;
 }
 
 export interface Team {

@@ -1,18 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import { format } from "date-fns";
-import { Calendar as CalendarIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import {
   Select,
   SelectContent,
@@ -33,8 +24,16 @@ import { JobFormData, jobSchema } from "@/lib/schemas/job-schema";
 import { cn } from "@/lib/utils";
 import AddressAutocomplete from "../AddressAutocomplete";
 import { db } from "@/lib/firebase";
-import { doc, updateDoc, collection, addDoc } from "firebase/firestore";
+import {
+  doc,
+  updateDoc,
+  collection,
+  addDoc,
+  Timestamp,
+} from "firebase/firestore";
 import { toast } from "sonner";
+import { DateTimeSelector } from "../ui/DateTimeSelector";
+import { determineLocationTag } from "@/lib/regions";
 interface JobFormProps {
   initialData?: Partial<Job>;
   onSubmit: (data: JobFormData) => Promise<void>;
@@ -42,74 +41,143 @@ interface JobFormProps {
   setJobs?: React.Dispatch<React.SetStateAction<Job[]>>;
   teams: Team[];
   onTeamAssign: (teamId: string, jobId: string) => Promise<void>;
-  jobId?: string;
 }
 
 export function JobForm({
   initialData,
-  onSubmit,
   onCancel,
+  setJobs,
   teams,
   onTeamAssign,
-  jobId,
 }: JobFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [date, setDate] = useState<Date | undefined>(
-    initialData?.scheduledDate
+    initialData?.scheduledDate instanceof Timestamp
+      ? initialData.scheduledDate.toDate()
+      : initialData?.scheduledDate
   );
   const [selectedTeamMembers, setSelectedTeamMembers] = useState<TeamMember[]>(
     []
   );
 
+  const formatPhoneNumber = (value: string): string => {
+    // Remove all non-digits
+    const cleaned = value.replace(/\D/g, "");
+
+    // Format the number
+    if (cleaned.length >= 10) {
+      return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(
+        6,
+        10
+      )}`;
+    } else if (cleaned.length > 6) {
+      return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(
+        6
+      )}`;
+    } else if (cleaned.length > 3) {
+      return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3)}`;
+    } else if (cleaned.length > 0) {
+      return `(${cleaned}`;
+    }
+
+    return cleaned;
+  };
+
+  const defaultLocation = {
+    address: "",
+    coordinates: { lat: 0, lng: 0 },
+    tag: determineLocationTag({ lat: 0, lng: 0 }),
+  };
+
   const handleFormSubmit = async (data: JobFormData) => {
     try {
       setIsSubmitting(true);
-      console.log("Setting isSubmitting to true");
+      console.log("handleFormSubmit called with data:", data);
 
-      // Prepare the job data
+      // Prepare the job data with all necessary fields
       const jobData = {
         ...data,
-        scheduledDate: date || new Date(),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+        scheduledDate: Timestamp.fromDate(date || new Date()),
+        createdAt: Timestamp.now(),
+        lastModified: Timestamp.now(),
+        customerRating: 0,
+        cost: data.cost || 0,
+        teamAssigned: data.teamAssigned || [],
+        location: data.location || defaultLocation,
+      } as Job;
 
-      console.log("Prepared job data:", jobData);
+      let savedJob: Job;
 
+      let savedJobId: string;
+
+      // Handle updating existing job or creating new job
       if (initialData?.id) {
-        // Update existing job
-        console.log("Updating existing job");
         const jobRef = doc(db, "jobs", initialData.id);
         await updateDoc(jobRef, {
           ...jobData,
-          updatedAt: new Date(),
+          lastModified: Timestamp.now(), // Update modification time
+          createdAt: initialData.createdAt, // Keep original creation time
         });
-
-        toast.success("Job Updated", {
-          description: "The job has been successfully updated.",
-        });
+        savedJobId = initialData.id;
+        savedJob = { ...jobData, id: initialData.id };
+        toast.success("Job Updated Successfully");
       } else {
         // Create new job
-        console.log("Creating new job");
         const jobRef = collection(db, "jobs");
-        await addDoc(jobRef, jobData);
+        const now = Timestamp.now();
+        const newJobData = {
+          ...jobData,
+          createdAt: now,
+          lastModified: now,
+        };
+        const docRef = await addDoc(jobRef, newJobData);
+        savedJobId = docRef.id;
+        savedJob = { ...jobData, id: docRef.id };
+        toast.success("Job Created Successfully");
+      }
 
-        toast.success("Job Created", {
-          description: "The job has been successfully created.",
+      // Update jobs list if setJobs is provided
+      if (setJobs) {
+        setJobs((prevJobs: Job[]) => {
+          if (initialData?.id) {
+            return prevJobs.map((job: Job) =>
+              job.id === initialData.id
+                ? ({
+                    ...job,
+                    ...jobData,
+                    id: initialData.id,
+                    // Convert Timestamps to Dates for UI
+                    createdAt: job.createdAt, // Keep original creation date
+                    lastModified: Timestamp.now(), // Update modification date
+                  } as Job)
+                : job
+            );
+          } else {
+            return [
+              ...prevJobs,
+              {
+                ...jobData,
+                id: savedJobId,
+                // Convert Timestamps to Dates for UI
+                createdAt: Timestamp.now(),
+                lastModified: Timestamp.now(),
+              } as Job,
+            ];
+          }
         });
       }
 
-      // Call the parent's onSubmit handler with the job data
-      console.log("Calling parent onSubmit");
-      await onSubmit(jobData);
-      if (data.teamAssigned && data.teamAssigned[0] && jobId) {
-        await onTeamAssign(data.teamAssigned[0], jobId);
+      // Handle team assignment if needed
+      if (data.teamAssigned && data.teamAssigned[0]) {
+        await onTeamAssign(data.teamAssigned[0], savedJobId);
       }
+
+      // Close the form or redirect
+      onCancel();
+      return savedJob;
     } catch (error) {
       console.error("Error submitting job:", error);
-      toast.error("Error", {
-        description: "There was an error saving the job. Please try again.",
-      });
+      toast.error("Error saving the job. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -121,28 +189,66 @@ export function JobForm({
     handleSubmit,
     watch,
     formState: { errors },
-  } = useForm<z.infer<typeof jobSchema>>({
+    setValue,
+  } = useForm<JobFormData>({
+    // Notice we're explicitly using JobFormData here
     resolver: zodResolver(jobSchema),
-    defaultValues: initialData || {
-      notes: "",
-      teamAssigned: [],
-      status: JobStatus.Quote,
+    defaultValues: {
+      // Spread the initial data if it exists, otherwise use default values
+      ...initialData,
+      notes: initialData?.notes || "",
+      teamAssigned: initialData?.teamAssigned || [],
+      status: initialData?.status || JobStatus.Quote,
+      scheduledDate:
+        initialData?.scheduledDate instanceof Timestamp
+          ? initialData.scheduledDate.toDate()
+          : initialData?.scheduledDate || undefined,
+
+      customerPhone: initialData?.customerPhone || "",
+      cost: initialData?.cost || 0,
+      installationType:
+        initialData?.installationType || InstallationType.Residential,
+      priority: initialData?.priority || Priority.Medium,
+      location: initialData?.location || defaultLocation,
     },
     mode: "onSubmit",
   });
 
-  const handleFormValidation = handleSubmit(async (data) => {
-    console.log("Form data before submission:", data);
+  useEffect(() => {
+    console.log("===================");
+    console.log("All Form Values:", watch());
+  }, [watch]);
 
-    if (
-      (data.status === JobStatus.Scheduled ||
-        data.status === JobStatus.ScheduledNextYear) &&
-      !date
-    ) {
-      toast.error("Please select a scheduled date");
-      return;
+  const handleFormValidation = handleSubmit(async (data) => {
+    console.log("=== Starting Form Validation ===");
+    console.log("Form Data for Validation:", data);
+
+    // Check if status is Scheduled or ScheduledNextYear
+    const isScheduledStatus =
+      data.status === JobStatus.Scheduled ||
+      data.status === JobStatus.ScheduledNextYear;
+
+    if (isScheduledStatus) {
+      const errors: string[] = [];
+
+      // Check for scheduled date
+      if (!date) {
+        errors.push("Scheduled date is required for scheduled jobs");
+      }
+
+      // Check for team assignment
+      if (!data.teamAssigned?.length) {
+        errors.push("Team assignment is required for scheduled jobs");
+      }
+
+      // If we found any errors, display them and stop submission
+      if (errors.length > 0) {
+        errors.forEach((error) => toast.error(error));
+        return;
+      }
     }
 
+    // If we get here, proceed with form submission
     try {
       await handleFormSubmit(data);
     } catch (error) {
@@ -155,40 +261,59 @@ export function JobForm({
   const jobStatuses = Object.values(JobStatus);
 
   return (
-    <form onSubmit={handleFormValidation} className="space-y-6">
+    <form
+      onSubmit={(e) => {
+        console.log("Form submit event triggered");
+        handleFormValidation(e);
+      }}
+      onInvalid={(e) => {
+        console.log("Form invalid event triggered", e);
+      }}
+      className="space-y-6"
+    >
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="customerId">Customer</Label>
-          <Input id="customerId" {...register("customerId")} />
-          {errors.customerId && (
-            <p className="text-sm text-red-500">{errors.customerId.message}</p>
+          <Label htmlFor="customerName">Customer</Label>
+          <Input id="customerName" {...register("customerName")} />
+          {errors.customerName && (
+            <p className="text-sm text-red-500">
+              {errors.customerName.message}
+            </p>
           )}
         </div>
 
-        <div className="space-y-2 flex flex-col justify-end gap-1">
-          <Label>Scheduled Date</Label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant={"outline"}
-                className={cn(
-                  "w-[240px] justify-start text-left font-normal",
-                  !date && "text-muted-foreground"
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {date ? format(date, "PPP") : <span>Pick a date</span>}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={date}
-                onSelect={setDate}
-                autoFocus
-              />
-            </PopoverContent>
-          </Popover>
+        <div className="space-y-2">
+          <Label htmlFor="customerPhone">Phone Number</Label>
+          <Input
+            id="customerPhone"
+            type="tel"
+            placeholder="(555) 555-5555"
+            {...register("customerPhone", {
+              pattern: {
+                value: /^\(\d{3}\) \d{3}-\d{4}$/,
+                message: "Please enter phone number in format (555) 555-5555",
+              },
+            })}
+            onChange={(e) => {
+              const formatted = formatPhoneNumber(e.target.value);
+              e.target.value = formatted;
+            }}
+          />
+          {errors.customerPhone && (
+            <p className="text-sm text-red-500">
+              {errors.customerPhone.message}
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <DateTimeSelector
+            date={date}
+            onDateTimeChange={(newDateTime) => {
+              setDate(newDateTime);
+              setValue("scheduledDate", newDateTime);
+            }}
+          />
         </div>
 
         <div className="space-y-2">
@@ -239,9 +364,9 @@ export function JobForm({
             control={control}
             render={({ field }) => (
               <Select
-                value={field.value?.toString() || ""} // Remove [0] since we want the team ID directly
+                value={field.value?.toString() || ""}
                 onValueChange={(teamId) => {
-                  field.onChange([teamId]); // Set the team ID directly
+                  field.onChange([teamId]);
                   const selectedTeam = teams.find((team) => team.id === teamId);
                   if (selectedTeam) {
                     setSelectedTeamMembers(selectedTeam.members);
@@ -255,8 +380,20 @@ export function JobForm({
                   )
                 }
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a team" />
+                <SelectTrigger
+                  className={cn(
+                    watch("status") === JobStatus.Scheduled &&
+                      !field.value?.length &&
+                      "border-red-500"
+                  )}
+                >
+                  <SelectValue
+                    placeholder={
+                      watch("status") === JobStatus.Scheduled
+                        ? "Team assignment required"
+                        : "Select a team"
+                    }
+                  />
                 </SelectTrigger>
                 <SelectContent>
                   {teams?.map((team) => (
@@ -365,17 +502,13 @@ export function JobForm({
           Cancel
         </Button>
         <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? (
-            <>
-              <span className="mr-2">
-                {initialData ? "Updating..." : "Creating..."}
-              </span>
-            </>
-          ) : initialData ? (
-            "Update Job"
-          ) : (
-            "Create Job"
-          )}
+          {isSubmitting
+            ? initialData
+              ? "Updating..."
+              : "Creating..."
+            : initialData
+            ? "Update Job"
+            : "Create Job"}
         </Button>
       </div>
     </form>

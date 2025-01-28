@@ -156,22 +156,9 @@ export function DashboardView() {
   const metrics = {
     activeJobs: jobs.filter((job) => job.status === JobStatus.Scheduled).length,
     totalRevenue: jobs.reduce((sum, job) => sum + (job.cost || 0), 0),
-    customerSatisfaction: calculateSatisfaction(jobs),
   };
 
   if (loading) return <div>Loading...</div>;
-
-  function calculateSatisfaction(jobs: Job[]): number {
-    const completedJobs = jobs.filter(
-      (job) => job.status === JobStatus.Completed
-    );
-    if (!completedJobs.length) return 0;
-    return (
-      (completedJobs.filter((job) => job.customerRating >= 4).length /
-        completedJobs.length) *
-      100
-    );
-  }
 
   return (
     <div className="space-y-8">
@@ -202,16 +189,6 @@ export function DashboardView() {
           <CardContent className="p-6">
             <div className="text-2xl font-bold">{metrics.totalRevenue}</div>
             <div className="text-sm text-muted-foreground">Total Revenue</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="text-2xl font-bold">
-              {metrics.customerSatisfaction}
-            </div>
-            <div className="text-sm text-muted-foreground">
-              Customer Satisfaction
-            </div>
           </CardContent>
         </Card>
         <Card>

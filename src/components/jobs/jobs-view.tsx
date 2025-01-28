@@ -4,10 +4,9 @@ import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { JobList } from "./job-list";
 import { JobForm } from "./job-form";
-import { JobDetails } from "./job-details";
 import { InstallationType, JobStatus, type Job, type Team } from "@/types";
 import { geocodeAddress } from "@/lib/geocoding";
-import { determineLocationTag } from "@/lib/location";
+import { determineLocationTag } from "@/lib/regions";
 import {
   addDoc,
   arrayUnion,
@@ -16,16 +15,16 @@ import {
   getDocs,
   orderBy,
   query,
-  serverTimestamp,
   Timestamp,
   updateDoc,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { toast } from "sonner";
 import { JobFormData } from "@/lib/schemas/job-schema";
+import { EnhancedJobView } from "./job-card";
 
 export function JobsView() {
-  const [jobs, setJobs] = useState<Job[]>([]); // Initialize with empty array
+  const [jobs, setJobs] = useState<Job[]>([]);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingJob, setEditingJob] = useState<Job | null>(null);
@@ -134,11 +133,9 @@ export function JobsView() {
           coordinates,
           tag: locationTag,
         },
-        // Initialize rating as null since it hasn't been rated yet
-        customerRating: 0,
         // Set timestamps using Firebase server timestamp
-        createdAt: serverTimestamp(),
-        lastModified: serverTimestamp(),
+        createdAt: new Date(),
+        lastModified: new Date(),
         // Ensure required arrays are initialized if not provided
         teamAssigned: data.teamAssigned || [],
         installationType: data.installationType || [],
@@ -152,7 +149,7 @@ export function JobsView() {
 
       // Validate that all required fields are present
       const requiredFields = [
-        "customerId",
+        "customerName",
         "scheduledDate",
         "location",
         "priority",
@@ -171,7 +168,6 @@ export function JobsView() {
 
       const JOB_DEFAULTS = {
         cost: 0,
-        customerRating: 0,
         installationType: InstallationType.Residential,
         status: JobStatus.Quote,
         notes: "",
@@ -188,15 +184,15 @@ export function JobsView() {
           coordinates,
           tag: locationTag,
         },
-        customerRating: JOB_DEFAULTS.customerRating,
-        createdAt: Timestamp.fromDate(new Date()),
-        lastModified: Timestamp.fromDate(new Date()),
+        createdAt: Timestamp.now(),
+        lastModified: Timestamp.now(),
         teamAssigned: data.teamAssigned || JOB_DEFAULTS.teamAssigned,
         installationType:
           data.installationType || JOB_DEFAULTS.installationType,
         status: data.status || JOB_DEFAULTS.status,
         cost: data.cost || JOB_DEFAULTS.cost,
         notes: data.notes || JOB_DEFAULTS.notes,
+        customerPhone: data.customerPhone || "",
       };
 
       // Update our local state with the new job
@@ -230,7 +226,7 @@ export function JobsView() {
           coordinates,
           tag: locationTag,
         },
-        lastModified: serverTimestamp(),
+        lastModified: Date.now(),
       });
 
       setEditingJob(null);
@@ -282,16 +278,18 @@ export function JobsView() {
         />
       )}
       {selectedJob && (
-        <JobDetails
+        <EnhancedJobView
           job={selectedJob}
           onEdit={handleEditJob}
           onClose={() => setSelectedJob(null)}
+          onView={handleViewJob}
         />
       )}
       <JobList
         initialJobs={jobs} // Use the jobs from state instead of initialJobs
         onEdit={handleEditJob}
         onView={handleViewJob}
+        setJobs={setJobs}
       />
     </div>
   );
