@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { TeamForm } from "./team-form";
@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { getTeamSkills } from "@/lib/team-utils";
 import { TeamCard } from "./team-card";
 import { useTeam } from "@/hooks/use-team";
+import { Link } from "react-router-dom";
 
 export function TeamsView() {
   const { setEditingTeam, setIsFormOpen, isFormOpen } = useTeam();
@@ -122,17 +123,15 @@ export function TeamsView() {
         heading="Teams"
         text="Manage installation teams and their schedules"
       >
-        <div className="flex gap-4">
+        <div className="flex gap-4 items-center">
           <Button onClick={() => setIsFormOpen(true)}>
             <Plus className="mr-2 h-4 w-4" /> New Team
           </Button>
-          <Button
-            asChild
-            variant="default"
-            className="bg-blue-600 hover:bg-blue-700"
-          >
-            <Link to="/team-members">Manage Team Members</Link>
-          </Button>
+          <Link to="/team-members">
+            <Button variant="default" className="bg-blue-600 hover:bg-blue-700">
+              Manage Team Members
+            </Button>
+          </Link>
         </div>
       </PageHeader>
 

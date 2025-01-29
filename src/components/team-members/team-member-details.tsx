@@ -19,7 +19,7 @@ export function TeamMemberDetails({ member, onClose }: TeamMemberDetailsProps) {
           <h2 className="text-2xl font-bold">{member.name}</h2>
           <p className="text-sm text-muted-foreground">{member.email}</p>
         </div>
-        <Button variant="ghost" size="icon" onClick={onClose}>
+        <Button variant="ghost" className="h-8 w-8 p-0" onClick={onClose}>
           <X className="h-4 w-4" />
         </Button>
       </CardHeader>
@@ -47,7 +47,11 @@ export function TeamMemberDetails({ member, onClose }: TeamMemberDetailsProps) {
 
           <div>
             <h3 className="font-medium mb-1">Hire Date</h3>
-            <p>{format(member.hireDate, "PPP")}</p>
+            <p>
+              {member.hireDate instanceof Date
+                ? format(member.hireDate, "PPP")
+                : format(new Date(member.hireDate), "PPP")}
+            </p>
           </div>
         </div>
 

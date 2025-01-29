@@ -63,9 +63,9 @@ export function JobList({
           return {
             ...data,
             id: doc.id,
-            scheduledDate: new Date(data.scheduledDate),
-            createdAt: new Date(data.createdAt),
-            lastModified: new Date(data.lastModified),
+            scheduledDate: data.scheduledDate.toDate(),
+            createdAt: data.createdAt.toDate(),
+            lastModified: data.lastModified.toDate(),
           } as Job;
         });
 

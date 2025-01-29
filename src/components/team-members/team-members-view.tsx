@@ -108,19 +108,6 @@ export function TeamMembersView() {
         <Button onClick={() => setIsFormOpen(true)}>Add Team Member</Button>
       </div>
 
-      <TeamMembersList
-        members={teamMembers}
-        onEdit={(member) => setEditingMember(member)}
-        onView={(member) => setSelectedMember(member)}
-      />
-
-      {isFormOpen && (
-        <TeamMemberForm
-          onSubmit={handleCreateMember}
-          onCancel={() => setIsFormOpen(false)}
-        />
-      )}
-
       {editingMember && (
         <TeamMemberForm
           initialData={editingMember}
@@ -128,6 +115,18 @@ export function TeamMembersView() {
           onCancel={() => setEditingMember(null)}
         />
       )}
+      {isFormOpen && (
+        <TeamMemberForm
+          onSubmit={handleCreateMember}
+          onCancel={() => setIsFormOpen(false)}
+        />
+      )}
+
+      <TeamMembersList
+        members={teamMembers}
+        onEdit={(member) => setEditingMember(member)}
+        onView={(member) => setSelectedMember(member)}
+      />
 
       {selectedMember && (
         <TeamMemberDetails

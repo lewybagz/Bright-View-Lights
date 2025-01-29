@@ -28,6 +28,27 @@ interface JobViewProps {
 export function EnhancedJobView({ job, onEdit, onClose }: JobViewProps) {
   const [teams, setTeams] = useState<Team[]>([]);
 
+  const getMapsUrl = (address: string) => {
+    // Check if user is on iOS
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+    // Encode the address for use in URL
+    const encodedAddress = encodeURIComponent(address);
+
+    if (isIOS) {
+      // Apple Maps URL format
+      return `maps://maps.apple.com/?q=${encodedAddress}`;
+    } else {
+      // Google Maps URL format
+      return `https://www.google.com/maps/search/?api=1&query=${encodedAddress}`;
+    }
+  };
+
+  const handleAddressClick = (address: string) => {
+    const mapsUrl = getMapsUrl(address);
+    window.open(mapsUrl, "_blank");
+  };
+
   const getFormattedDate = (date: string | number | Date | Timestamp) => {
     if (!date) return "No date scheduled";
 
@@ -188,10 +209,20 @@ export function EnhancedJobView({ job, onEdit, onClose }: JobViewProps) {
                 <MapPin className="h-4 w-4" />
                 <span>Where?</span>
               </div>
-              <p className="font-medium">{job.location.address}</p>
-              <p className="text-sm text-muted-foreground">
-                {job.location.tag}
-              </p>
+              <button
+                onClick={() => handleAddressClick(job.location.address)}
+                className="group text-left hover:bg-gray-50 rounded-md p-0 transition-colors w-full"
+              >
+                <p className="font-medium group-hover:text-blue-600 transition-colors">
+                  {job.location.address}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {job.location.tag}
+                </p>
+                <p className="text-sm text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                  Open in Maps →
+                </p>
+              </button>
             </div>
           </div>
         </div>

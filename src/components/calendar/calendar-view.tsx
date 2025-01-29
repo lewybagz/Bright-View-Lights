@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   format,
   startOfMonth,
@@ -20,30 +20,57 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
+import { Job } from "@/types";
+import { fetchJobs } from "@/lib/jobs";
+import { EnhancedJobView } from "../jobs/job-card";
 
 type CalendarView = "month" | "week" | "day";
 
-// Mock events for demonstration
-const mockEvents = [
-  {
-    id: "1",
-    title: "Residential Installation",
-    start: new Date(2024, 0, 15, 10, 0),
-    end: new Date(2024, 0, 15, 12, 0),
-    type: "installation",
-  },
-  {
-    id: "2",
-    title: "Commercial Setup",
-    start: new Date(2024, 0, 15, 14, 0),
-    end: new Date(2024, 0, 15, 16, 0),
-    type: "setup",
-  },
-];
+interface CalendarEvent {
+  id: string;
+  title: string;
+  start: Date;
+  type: string; // We'll use installationType from Job
+}
 
 export function CalendarView() {
   const [currentDate, setCurrentDate] = React.useState(new Date());
   const [view, setView] = React.useState<CalendarView>("month");
+  const [events, setEvents] = React.useState<CalendarEvent[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+
+  function jobsToEvents(jobs: Job[]): CalendarEvent[] {
+    return jobs.map((job) => ({
+      id: job.id,
+      title: `${job.customerName} - ${job.location.address}`,
+      start:
+        job.scheduledDate instanceof Date
+          ? job.scheduledDate
+          : job.scheduledDate.toDate(),
+      type: job.installationType,
+    }));
+  }
+
+  useEffect(() => {
+    const loadJobs = async () => {
+      setIsLoading(true);
+      try {
+        const { jobs, error } = await fetchJobs();
+        if (!error && jobs) {
+          // Convert jobs to calendar events
+          const calendarEvents = jobsToEvents(jobs);
+          setEvents(calendarEvents);
+        }
+      } catch (error) {
+        console.error("Error loading jobs:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadJobs();
+  }, []);
 
   const navigate = (direction: "prev" | "next") => {
     switch (view) {
@@ -73,40 +100,38 @@ export function CalendarView() {
   const goToToday = () => setCurrentDate(new Date());
 
   const getEventsForInterval = (start: Date, end: Date) => {
-    return mockEvents.filter(
-      (event) =>
-        isWithinInterval(event.start, { start, end }) ||
-        isWithinInterval(event.end, { start, end })
+    return events.filter((event) =>
+      isWithinInterval(event.start, { start, end })
     );
   };
 
-  const renderEvent = (
-    event: (typeof mockEvents)[0],
-    isWeekView: boolean = false
-  ) => {
+  const renderEvent = (event: CalendarEvent, isWeekView: boolean = false) => {
     const startHour = event.start.getHours();
-    const duration =
-      (event.end.getTime() - event.start.getTime()) / (1000 * 60 * 60);
+
+    const handleEventClick = async () => {
+      const { jobs } = await fetchJobs();
+      const job = jobs.find((j) => j.id === event.id);
+      if (job) setSelectedJob(job);
+    };
 
     return (
       <div
         key={event.id}
+        onClick={handleEventClick}
         className={cn(
-          "absolute left-1 right-1 rounded-md px-2 py-1 text-xs text-white overflow-hidden",
-          event.type === "installation"
+          "absolute left-1 right-1 rounded-md px-2 py-1 text-xs text-white overflow-hidden cursor-pointer hover:opacity-80",
+          event.type === "residential"
             ? "bg-brightview-orange"
             : "bg-brightview-blue"
         )}
         style={{
           top: `${startHour * 60 + event.start.getMinutes()}px`,
-          height: `${duration * 60}px`,
+          height: "60px",
           ...(isWeekView && { left: "4px", right: "4px" }),
         }}
       >
         <div className="font-semibold">{event.title}</div>
-        <div>
-          {format(event.start, "h:mm a")} - {format(event.end, "h:mm a")}
-        </div>
+        <div>{format(event.start, "h:mm a")}</div>
       </div>
     );
   };
@@ -114,10 +139,26 @@ export function CalendarView() {
   const renderMonthView = () => {
     const firstDayOfMonth = startOfMonth(currentDate);
     const lastDayOfMonth = endOfMonth(currentDate);
+
+    // Get the Sunday before the first day of the month if month doesn't start on Sunday
+    const startDate = startOfWeek(firstDayOfMonth);
+
+    // Get the Saturday after the last day of the month if month doesn't end on Saturday
+    const endDate = endOfWeek(lastDayOfMonth);
+
+    // Get all days between the calculated start and end dates
     const days = eachDayOfInterval({
-      start: firstDayOfMonth,
-      end: lastDayOfMonth,
+      start: startDate,
+      end: endDate,
     });
+
+    if (isLoading) {
+      return (
+        <div className="h-full flex items-center justify-center">
+          <div className="animate-spin">Loading Month View...</div>
+        </div>
+      );
+    }
 
     return (
       <div className="grid grid-cols-7 gap-px bg-gray-200">
@@ -130,18 +171,12 @@ export function CalendarView() {
           </div>
         ))}
 
-        {Array.from({ length: firstDayOfMonth.getDay() }).map((_, index) => (
-          <div
-            key={`empty-${index}`}
-            className="bg-white p-2 text-sm text-gray-400"
-          />
-        ))}
-
         {days.map((day) => {
           const dayEvents = getEventsForInterval(
             startOfDay(day),
             endOfDay(day)
           );
+          const isCurrentMonth = isSameMonth(day, currentDate);
 
           return (
             <div
@@ -149,22 +184,31 @@ export function CalendarView() {
               className={cn(
                 "bg-white p-2 min-h-[100px] text-sm border border-gray-100",
                 isToday(day) && "bg-blue-50",
-                !isSameMonth(day, currentDate) && "text-gray-400"
+                !isCurrentMonth && "text-gray-400 bg-gray-50"
               )}
             >
-              <div className="font-medium mb-1">{format(day, "d")}</div>
+              <div className="font-medium mb-1">
+                {!isCurrentMonth && format(day, "MMM ")}{" "}
+                {/* Show month abbrev for non-current month days */}
+                {format(day, "d")}
+              </div>
               <div className="space-y-1">
                 {dayEvents.map((event) => (
                   <div
                     key={event.id}
+                    onClick={async () => {
+                      const { jobs } = await fetchJobs();
+                      const job = jobs.find((j) => j.id === event.id);
+                      if (job) setSelectedJob(job);
+                    }}
                     className={cn(
-                      "text-xs p-1 rounded",
-                      event.type === "installation"
+                      "text-xs p-1 rounded truncate cursor-pointer hover:opacity-80",
+                      event.type === "residential"
                         ? "bg-brightview-orange text-white"
                         : "bg-brightview-blue text-white"
                     )}
                   >
-                    {event.title}
+                    {format(event.start, "h:mm a")} - {event.title}
                   </div>
                 ))}
               </div>
@@ -179,6 +223,14 @@ export function CalendarView() {
     const weekStart = startOfWeek(currentDate);
     const weekEnd = endOfWeek(currentDate);
     const days = eachDayOfInterval({ start: weekStart, end: weekEnd });
+
+    if (isLoading) {
+      return (
+        <div className="h-full flex items-center justify-center">
+          <div className="animate-spin">Loading Week view...</div>
+        </div>
+      );
+    }
 
     return (
       <div className="flex flex-col h-[600px]">
@@ -276,6 +328,14 @@ export function CalendarView() {
     );
   };
 
+  if (isLoading) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="animate-spin">Loading Day View...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-full flex flex-col">
       <PageHeader
@@ -331,6 +391,18 @@ export function CalendarView() {
           </div>
         </div>
       </Card>
+      {selectedJob && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-6 z-50">
+          <div className="w-full max-w-2xl bg-white rounded-lg shadow-lg p-4">
+            <EnhancedJobView
+              job={selectedJob}
+              onEdit={() => {}}
+              onView={() => {}}
+              onClose={() => setSelectedJob(null)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
